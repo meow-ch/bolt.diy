@@ -105,6 +105,8 @@ project, please check the [project management guide](./PROJECT.md) to get starte
 - **Download projects as ZIP** for easy portability Sync to a folder on the host.
 - **Integration-ready Docker support** for a hassle-free setup.
 - **Deploy** directly to **Netlify**
+- **Customizable File Import** via `.boltignore` files
+- **Focus specific files** using the `<BOLT_FOCUS>` tag in chat
 
 ## Setup
 

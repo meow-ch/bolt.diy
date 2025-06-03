@@ -7,7 +7,7 @@ import { PromptLibrary } from '~/lib/common/prompt-library';
 import { allowedHTMLElements } from '~/utils/markdown';
 import { LLMManager } from '~/lib/modules/llm/manager';
 import { createScopedLogger } from '~/utils/logger';
-import { createFilesContext, extractPropertiesFromMessage } from './utils';
+import { createFilesContext, extractPropertiesFromMessage, getBoltIgnorePatterns } from './utils';
 import { discussPrompt } from '~/lib/common/prompts/discuss-prompt';
 
 export type Messages = Message[];
@@ -128,7 +128,7 @@ export async function streamText(props: {
     }) ?? getSystemPrompt();
 
   if (chatMode === 'build' && contextFiles && contextOptimization) {
-    const codeContext = createFilesContext(contextFiles, true);
+    const codeContext = createFilesContext(contextFiles, true, getBoltIgnorePatterns(files || {}));
 
     systemPrompt = `${systemPrompt}
 

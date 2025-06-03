@@ -4,10 +4,22 @@ import { IGNORE_PATTERNS, type FileMap } from './constants';
 import ignore from 'ignore';
 import type { ContextAnnotation } from '~/types/context';
 
+export function getBoltIgnorePatterns(files: FileMap): string[] {
+  const bolt = files['/home/project/.boltignore'] || files['.boltignore'];
+  if (bolt && bolt.type === 'file') {
+    return bolt.content
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+  }
+  return [];
+}
+
 export function extractPropertiesFromMessage(message: Omit<Message, 'id'>): {
   model: string;
   provider: string;
   content: string;
+  focusFiles: string[] | null;
 } {
   const textContent = Array.isArray(message.content)
     ? message.content.find((item) => item.type === 'text')?.text || ''
@@ -28,20 +40,34 @@ export function extractPropertiesFromMessage(message: Omit<Message, 'id'>): {
    */
   const provider = providerMatch ? providerMatch[1] : DEFAULT_PROVIDER.name;
 
+  const focusMatch = textContent.match(/<BOLT_FOCUS>([\s\S]*?)<\/BOLT_FOCUS>/);
+  const focusFiles = focusMatch
+    ? focusMatch[1]
+        .split(',')
+        .map((f) => f.trim())
+        .filter(Boolean)
+    : null;
+
   const cleanedContent = Array.isArray(message.content)
     ? message.content.map((item) => {
         if (item.type === 'text') {
           return {
             type: 'text',
-            text: item.text?.replace(MODEL_REGEX, '').replace(PROVIDER_REGEX, ''),
+            text: item.text
+              ?.replace(MODEL_REGEX, '')
+              .replace(PROVIDER_REGEX, '')
+              .replace(/<BOLT_FOCUS>[\s\S]*?<\/BOLT_FOCUS>/, ''),
           };
         }
 
         return item; // Preserve image_url and other types as is
       })
-    : textContent.replace(MODEL_REGEX, '').replace(PROVIDER_REGEX, '');
+    : textContent
+        .replace(MODEL_REGEX, '')
+        .replace(PROVIDER_REGEX, '')
+        .replace(/<BOLT_FOCUS>[\s\S]*?<\/BOLT_FOCUS>/, '');
 
-  return { model, provider, content: cleanedContent };
+  return { model, provider, content: cleanedContent, focusFiles };
 }
 
 export function simplifyBoltActions(input: string): string {
@@ -54,8 +80,8 @@ export function simplifyBoltActions(input: string): string {
   });
 }
 
-export function createFilesContext(files: FileMap, useRelativePath?: boolean) {
-  const ig = ignore().add(IGNORE_PATTERNS);
+export function createFilesContext(files: FileMap, useRelativePath?: boolean, extraPatterns: string[] = []) {
+  const ig = ignore().add([...IGNORE_PATTERNS, ...extraPatterns]);
   let filePaths = Object.keys(files);
   filePaths = filePaths.filter((x) => {
     const relPath = x.replace('/home/project/', '');
