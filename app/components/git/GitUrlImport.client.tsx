@@ -1,6 +1,7 @@
 import { useSearchParams } from '@remix-run/react';
 import { generateId, type Message } from 'ai';
 import ignore from 'ignore';
+import { parseBoltIgnore, createIgnore } from '~/utils/fileUtils';
 import { useEffect, useState } from 'react';
 import { ClientOnly } from 'remix-utils/client-only';
 import { BaseChat } from '~/components/chat/BaseChat';
@@ -49,12 +50,17 @@ export function GitUrlImport() {
     }
 
     if (repoUrl) {
-      const ig = ignore().add(IGNORE_PATTERNS);
-
       try {
         const { workdir, data } = await gitClone(repoUrl);
 
         if (importChat) {
+          const boltIgnoreEntry = data['.boltignore'];
+          const extraPatterns = await parseBoltIgnore(
+            boltIgnoreEntry && boltIgnoreEntry.encoding === 'utf8'
+              ? boltIgnoreEntry.data
+              : undefined,
+          );
+          const ig = createIgnore(extraPatterns);
           const filePaths = Object.keys(data).filter((filePath) => !ig.ignores(filePath));
           const textDecoder = new TextDecoder('utf-8');
 

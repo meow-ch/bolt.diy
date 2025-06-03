@@ -21,6 +21,27 @@ export const IGNORE_PATTERNS = [
 export const MAX_FILES = 1000;
 export const ig = ignore().add(IGNORE_PATTERNS);
 
+export async function parseBoltIgnore(fileOrContent?: File | string): Promise<string[]> {
+  if (!fileOrContent) {
+    return [];
+  }
+
+  try {
+    const content =
+      typeof fileOrContent === 'string' ? fileOrContent : await fileOrContent.text();
+    return content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'));
+  } catch {
+    return [];
+  }
+}
+
+export function createIgnore(extraPatterns: string[] = []) {
+  return ignore().add([...IGNORE_PATTERNS, ...extraPatterns]);
+}
+
 export const generateId = () => Math.random().toString(36).substring(2, 15);
 
 export const isBinaryFile = async (file: File): Promise<boolean> => {
@@ -38,8 +59,8 @@ export const isBinaryFile = async (file: File): Promise<boolean> => {
   return false;
 };
 
-export const shouldIncludeFile = (path: string): boolean => {
-  return !ig.ignores(path);
+export const shouldIncludeFile = (path: string, ignoreInstance: ignore.Ignore = ig): boolean => {
+  return !ignoreInstance.ignores(path);
 };
 
 const readPackageJson = async (files: File[]): Promise<{ scripts?: Record<string, string> } | null> => {

@@ -2,7 +2,7 @@ import ignore from 'ignore';
 import { useGit } from '~/lib/hooks/useGit';
 import type { Message } from 'ai';
 import { detectProjectCommands, createCommandsMessage, escapeBoltTags } from '~/utils/projectCommands';
-import { generateId } from '~/utils/fileUtils';
+import { generateId, parseBoltIgnore, createIgnore } from '~/utils/fileUtils';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { LoadingOverlay } from '~/components/ui/LoadingOverlay';
@@ -32,8 +32,6 @@ const IGNORE_PATTERNS = [
   '**/*lock.yaml',
 ];
 
-const ig = ignore().add(IGNORE_PATTERNS);
-
 const MAX_FILE_SIZE = 100 * 1024; // 100KB limit per file
 const MAX_TOTAL_SIZE = 500 * 1024; // 500KB total limit
 
@@ -58,6 +56,13 @@ export default function GitCloneButton({ importChat, className }: GitCloneButton
       const { workdir, data } = await gitClone(repoUrl);
 
       if (importChat) {
+        const boltIgnoreEntry = data['.boltignore'];
+        const extraPatterns = await parseBoltIgnore(
+          boltIgnoreEntry && boltIgnoreEntry.encoding === 'utf8'
+            ? boltIgnoreEntry.data
+            : undefined,
+        );
+        const ig = createIgnore(extraPatterns);
         const filePaths = Object.keys(data).filter((filePath) => !ig.ignores(filePath));
         const textDecoder = new TextDecoder('utf-8');
 

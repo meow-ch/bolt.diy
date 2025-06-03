@@ -3,13 +3,11 @@ import ignore from 'ignore';
 import type { IProviderSetting } from '~/types/model';
 import { IGNORE_PATTERNS, type FileMap } from './constants';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, PROVIDER_LIST } from '~/utils/constants';
-import { createFilesContext, extractCurrentContext, extractPropertiesFromMessage, simplifyBoltActions } from './utils';
+import { createFilesContext, extractCurrentContext, extractPropertiesFromMessage, simplifyBoltActions, getBoltIgnorePatterns } from './utils';
 import { createScopedLogger } from '~/utils/logger';
 import { LLMManager } from '~/lib/modules/llm/manager';
 
 // Common patterns to ignore, similar to .gitignore
-
-const ig = ignore().add(IGNORE_PATTERNS);
 const logger = createScopedLogger('select-context');
 
 export async function selectContext(props: {
@@ -26,6 +24,11 @@ export async function selectContext(props: {
   const { messages, env: serverEnv, apiKeys, files, providerSettings, summary, onFinish } = props;
   let currentModel = DEFAULT_MODEL;
   let currentProvider = DEFAULT_PROVIDER.name;
+  const lastUserMsg = messages.filter((m) => m.role === 'user').slice(-1)[0];
+  const { focusFiles } = lastUserMsg ? extractPropertiesFromMessage(lastUserMsg) : { focusFiles: null } as any;
+  const boltIgnorePatterns = getBoltIgnorePatterns(files || {});
+  const ig = ignore().add([...IGNORE_PATTERNS, ...boltIgnorePatterns]);
+
   const processedMessages = messages.map((message) => {
     if (message.role === 'user') {
       const { model, provider, content } = extractPropertiesFromMessage(message);
@@ -78,11 +81,14 @@ export async function selectContext(props: {
 
   const { codeContext } = extractCurrentContext(processedMessages);
 
-  let filePaths = getFilePaths(files || {});
+  let filePaths = getFilePaths(files || {}, boltIgnorePatterns);
   filePaths = filePaths.filter((x) => {
     const relPath = x.replace('/home/project/', '');
     return !ig.ignores(relPath);
   });
+  if (focusFiles && focusFiles.length > 0) {
+    filePaths = filePaths.filter((p) => focusFiles!.includes(p.replace('/home/project/', '')));
+  }
 
   let context = '';
   const currrentFiles: string[] = [];
@@ -102,7 +108,7 @@ export async function selectContext(props: {
         currrentFiles.push(relativePath);
       }
     });
-    context = createFilesContext(contextFiles);
+    context = createFilesContext(contextFiles, false, boltIgnorePatterns);
   }
 
   const summaryText = `Here is the summary of the chat till now: ${summary}`;
@@ -233,11 +239,12 @@ export async function selectContext(props: {
   // generateText({
 }
 
-export function getFilePaths(files: FileMap) {
+export function getFilePaths(files: FileMap, extraPatterns: string[] = []) {
+  const igLocal = ignore().add([...IGNORE_PATTERNS, ...extraPatterns]);
   let filePaths = Object.keys(files);
   filePaths = filePaths.filter((x) => {
     const relPath = x.replace('/home/project/', '');
-    return !ig.ignores(relPath);
+    return !igLocal.ignores(relPath);
   });
 
   return filePaths;
