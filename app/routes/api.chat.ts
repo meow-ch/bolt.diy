@@ -6,7 +6,7 @@ import { streamText, type Messages, type StreamingOptions } from '~/lib/.server/
 import SwitchableStream from '~/lib/.server/llm/switchable-stream';
 import type { IProviderSetting } from '~/types/model';
 import { createScopedLogger } from '~/utils/logger';
-import { getFilePaths, selectContext } from '~/lib/.server/llm/select-context';
+import { getFilePaths, selectContext, getBoltIgnorePatterns } from '~/lib/.server/llm/select-context';
 import type { ContextAnnotation, ProgressAnnotation } from '~/types/context';
 import { WORK_DIR } from '~/utils/constants';
 import { createSummary } from '~/lib/.server/llm/create-summary';
@@ -77,7 +77,7 @@ async function chatAction({ context, request }: ActionFunctionArgs) {
 
     const dataStream = createDataStream({
       async execute(dataStream) {
-        const filePaths = getFilePaths(files || {});
+        const filePaths = getFilePaths(files || {}, getBoltIgnorePatterns(files || {}));
         let filteredFiles: FileMap | undefined = undefined;
         let summary: string | undefined = undefined;
         let messageSliceId = 0;
