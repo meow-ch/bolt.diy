@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import type { Message } from 'ai';
 import { toast } from 'react-toastify';
-import { MAX_FILES, isBinaryFile, shouldIncludeFile } from '~/utils/fileUtils';
+import {
+  MAX_FILES,
+  isBinaryFile,
+  shouldIncludeFile,
+  parseBoltIgnore,
+  createIgnore,
+} from '~/utils/fileUtils';
 import { createChatFromFolder } from '~/utils/folderImport';
 import { logStore } from '~/lib/stores/logs'; // Assuming logStore is imported from this location
 import { Button } from '~/components/ui/Button';
@@ -18,9 +24,16 @@ export const ImportFolderButton: React.FC<ImportFolderButtonProps> = ({ classNam
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const allFiles = Array.from(e.target.files || []);
 
+    const rootFolder = allFiles[0]?.webkitRelativePath.split('/')[0];
+    const boltIgnoreFile = allFiles.find((f) =>
+      f.webkitRelativePath === `${rootFolder}/.boltignore`,
+    );
+    const extraPatterns = await parseBoltIgnore(boltIgnoreFile);
+    const ig = createIgnore(extraPatterns);
+
     const filteredFiles = allFiles.filter((file) => {
       const path = file.webkitRelativePath.split('/').slice(1).join('/');
-      const include = shouldIncludeFile(path);
+      const include = shouldIncludeFile(path, ig);
 
       return include;
     });
